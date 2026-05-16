@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
+import { DEMO_MODE } from "@/lib/api";
+
 const nav = [
   { href: "/", label: "Dashboard" },
   { href: "/transactions", label: "Transactions" },
@@ -15,6 +17,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   return (
     <div className="min-h-screen flex flex-col">
+      {DEMO_MODE && (
+        <div className="bg-ink-900 text-white text-xs px-6 py-2 flex items-center justify-center gap-3">
+          <span className="font-medium">Live demo</span>
+          <span className="text-ink-300 hidden sm:inline">
+            Pre-baked synthetic data. Edits update on screen but don't persist. Source on
+          </span>
+          <a className="underline underline-offset-2 sm:ml-1" href="https://github.com/c-tonneslan/gigledger">
+            GitHub
+          </a>
+        </div>
+      )}
       <header className="border-b border-ink-100 bg-white">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">

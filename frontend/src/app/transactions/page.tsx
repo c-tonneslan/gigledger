@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import clsx from "clsx";
 
-import { api } from "@/lib/api";
+import { api, DEMO_MODE } from "@/lib/api";
 import { money, shortDate } from "@/lib/format";
 import type { Scope, Transaction } from "@/lib/api";
 
@@ -35,13 +35,35 @@ export default function TransactionsPage() {
 
   async function patch(tx: Transaction, body: Parameters<typeof api.updateTransaction>[1]) {
     await api.updateTransaction(tx.id, body);
-    await refresh();
-    await mutate("summary");
+    if (DEMO_MODE) {
+      // No backend writes: apply the change to the SWR cache so the row reflects the edit immediately.
+      const next = (txs || []).map((row) =>
+        row.id === tx.id
+          ? {
+              ...row,
+              ...(body?.scope ? { scope: body.scope } : {}),
+              ...(body?.category_id ? { category_id: body.category_id } : {}),
+              ...("client_id" in (body || {}) ? { client_id: body!.client_id ?? null } : {}),
+              user_corrected: true,
+            }
+          : row,
+      );
+      await refresh(next, { revalidate: false });
+    } else {
+      await refresh();
+      await mutate("summary");
+    }
   }
 
   async function runClassifier() {
     setClassifying(true);
     try {
+      if (DEMO_MODE) {
+        alert(
+          "Demo mode: the seed data was pre-classified server-side. In a live deployment this button hits the FastAPI /transactions/classify endpoint, which routes each new merchant through MerchantRule lookup first and Anthropic Claude only on misses.",
+        );
+        return;
+      }
       const result = await api.classify(true);
       await refresh();
       await mutate("summary");

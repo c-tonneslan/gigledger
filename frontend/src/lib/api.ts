@@ -94,6 +94,16 @@ export type Variance = {
 };
 
 const BASE = "/api";
+export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+// Demo mode reads pre-baked JSON files from /demo/*. Lets the portfolio site host the app
+// without any backend running. Writes are still acknowledged so the UI feels live, but they
+// don't survive a page reload.
+async function demoFetch<T>(path: string): Promise<T> {
+  const res = await fetch(`/demo${path}`, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`demo asset missing: ${path}`);
+  return res.json() as Promise<T>;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -111,14 +121,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function filterTransactions(txs: Transaction[], params?: {
+  scope?: Scope;
+  needs_review?: boolean;
+  limit?: number;
+  client_id?: number;
+}) {
+  let out = txs;
+  if (params?.scope) out = out.filter((t) => t.scope === params.scope);
+  if (params?.needs_review) out = out.filter((t) => t.scope === "unknown" || t.category_id == null);
+  if (params?.client_id) out = out.filter((t) => t.client_id === params.client_id);
+  if (params?.limit) out = out.slice(0, params.limit);
+  return out;
+}
+
 export const api = {
-  summary: () => request<Summary>("/transactions/summary"),
-  transactions: (params?: {
+  summary: () =>
+    DEMO_MODE ? demoFetch<Summary>("/summary.json") : request<Summary>("/transactions/summary"),
+  transactions: async (params?: {
     scope?: Scope;
     needs_review?: boolean;
     limit?: number;
     client_id?: number;
   }) => {
+    if (DEMO_MODE) {
+      const all = await demoFetch<Transaction[]>("/transactions.json");
+      return filterTransactions(all, params);
+    }
     const q = new URLSearchParams();
     if (params?.scope) q.set("scope", params.scope);
     if (params?.needs_review) q.set("needs_review", "true");
@@ -127,30 +156,51 @@ export const api = {
     const qs = q.toString();
     return request<Transaction[]>(`/transactions${qs ? `?${qs}` : ""}`);
   },
-  categories: () => request<Category[]>("/transactions/categories"),
-  updateTransaction: (id: number, patch: Partial<{
-    category_id: number;
-    scope: Scope;
-    client_id: number | null;
-    section_179_amount: string;
-    business_use_pct: string;
-    note: string;
-    apply_to_merchant: boolean;
-  }>) =>
-    request<Transaction>(`/transactions/${id}`, {
+  categories: () =>
+    DEMO_MODE ? demoFetch<Category[]>("/categories.json") : request<Category[]>("/transactions/categories"),
+  updateTransaction: async (
+    id: number,
+    patch: Partial<{
+      category_id: number;
+      scope: Scope;
+      client_id: number | null;
+      section_179_amount: string;
+      business_use_pct: string;
+      note: string;
+      apply_to_merchant: boolean;
+    }>,
+  ) => {
+    if (DEMO_MODE) {
+      // The Transactions page applies the patch to its local copy after this resolves, so the
+      // demo just needs to acknowledge. Nothing persists across reloads.
+      return { ok: true } as unknown as Transaction;
+    }
+    return request<Transaction>(`/transactions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
-    }),
-  classify: (only_unclassified = true) =>
-    request<{ classified: number; skipped: number; used_llm: number; used_rules: number }>(
+    });
+  },
+  classify: async (only_unclassified = true) => {
+    if (DEMO_MODE) {
+      return { classified: 0, skipped: 0, used_llm: 0, used_rules: 0 };
+    }
+    return request<{ classified: number; skipped: number; used_llm: number; used_rules: number }>(
       "/transactions/classify",
       { method: "POST", body: JSON.stringify({ only_unclassified }) },
-    ),
-  clients: () => request<Client[]>("/clients"),
+    );
+  },
+  clients: () => (DEMO_MODE ? demoFetch<Client[]>("/clients.json") : request<Client[]>("/clients")),
   hourlyRates: (sinceDays = 365) =>
-    request<HourlyRate[]>(`/clients/hourly-rates?since_days=${sinceDays}`),
-  accounts: () => request<Account[]>("/accounts"),
+    DEMO_MODE
+      ? demoFetch<HourlyRate[]>(`/rates-${sinceDays === 540 ? 540 : 365}.json`)
+      : request<HourlyRate[]>(`/clients/hourly-rates?since_days=${sinceDays}`),
+  accounts: () => (DEMO_MODE ? demoFetch<Account[]>("/accounts.json") : request<Account[]>("/accounts")),
   taxProjection: (state?: string, filing_status?: string) => {
+    if (DEMO_MODE) {
+      const s = (state || "PA").toUpperCase();
+      const f = filing_status === "mfj" ? "mfj" : "single";
+      return demoFetch<TaxProjection>(`/tax-${s}-${f}.json`);
+    }
     const q = new URLSearchParams();
     if (state) q.set("state", state);
     if (filing_status) q.set("filing_status", filing_status);
@@ -158,5 +208,7 @@ export const api = {
     return request<TaxProjection>(`/taxes/projection${qs ? `?${qs}` : ""}`);
   },
   variance: (months_back = 12) =>
-    request<Variance>(`/analytics/variance?months_back=${months_back}`),
+    DEMO_MODE
+      ? demoFetch<Variance>("/variance.json")
+      : request<Variance>(`/analytics/variance?months_back=${months_back}`),
 };
