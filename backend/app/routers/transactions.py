@@ -82,9 +82,10 @@ def transaction_summary(
     since: Optional[date] = None,
     until: Optional[date] = None,
 ):
-    q = select(Transaction)
-    if since:
-        q = q.where(Transaction.posted_on >= since)
+    # Default to year-to-date so the dashboard's "YTD" label is honest.
+    if since is None:
+        since = date(date.today().year, 1, 1)
+    q = select(Transaction).where(Transaction.posted_on >= since)
     if until:
         q = q.where(Transaction.posted_on <= until)
     rows = db.scalars(q).all()

@@ -52,18 +52,20 @@ CATEGORIES = [
 ]
 
 ACCOUNTS = [
-    ("Chase Business Checking", "Chase", "4421", True, Decimal("18750.00")),
-    ("Ally Personal Checking", "Ally", "9182", False, Decimal("6420.00")),
+    ("Chase Business Checking", "Chase", "4421", True, Decimal("14820.00")),
+    ("Ally Personal Checking", "Ally", "9182", False, Decimal("3640.00")),
     ("Apple Card", "Apple", "0007", False, Decimal("0.00")),
-    ("SEP-IRA (Fidelity)", "Fidelity", "5510", True, Decimal("31400.00")),
+    ("Marcus High-Yield Savings", "Marcus", "8821", True, Decimal("18200.00")),
+    ("SEP-IRA (Fidelity)", "Fidelity", "5510", True, Decimal("9800.00")),
 ]
 
+# (name, platform, default_rate, activity)
+# activity = "heavy" (paid every 2-3 weeks), "medium" (~monthly), "light" (sporadic, drops months)
 CLIENTS = [
-    ("Mercor", "Mercor", Decimal("60.00")),
-    ("Outlier AI", "Outlier", Decimal("55.00")),
-    ("Scale AI", "Scale", Decimal("70.00")),
-    ("Acme Consulting", "Direct", Decimal("125.00")),
-    ("Bluebird Studio", "Direct", Decimal("95.00")),
+    ("Mercor", "Mercor", Decimal("55.00"), "heavy"),
+    ("Outlier AI", "Outlier", Decimal("48.00"), "medium"),
+    ("Acme Consulting", "Direct", Decimal("110.00"), "medium"),
+    ("Bluebird Studio", "Direct", Decimal("85.00"), "light"),
 ]
 
 BUSINESS_EXPENSE_PATTERNS = [
@@ -102,8 +104,8 @@ PERSONAL_EXPENSE_PATTERNS = [
 ]
 
 ESTIMATED_PAYMENTS = [
-    (date(2026, 1, 15), "2025Q4", Decimal("3800.00"), Decimal("950.00")),
-    (date(2026, 4, 15), "2026Q1", Decimal("4200.00"), Decimal("1100.00")),
+    (date(2026, 1, 15), "2025Q4", Decimal("2900.00"), Decimal("420.00")),
+    (date(2026, 4, 15), "2026Q1", Decimal("3100.00"), Decimal("510.00")),
 ]
 
 
@@ -112,14 +114,25 @@ def reset_db():
     Base.metadata.create_all(bind=engine)
 
 
-def _client_payment(rng: random.Random, client: Client) -> Decimal:
-    # Lumpy payouts: 60-200 hours of accumulated work paid out, with platform fees baked in.
-    hours = Decimal(rng.randint(40, 180))
+CLIENT_PROFILES = {
+    "heavy": {"hours_low": 18, "hours_high": 42, "gap_low": 12, "gap_high": 22, "skip_chance": 0.05},
+    "medium": {"hours_low": 10, "hours_high": 28, "gap_low": 22, "gap_high": 38, "skip_chance": 0.18},
+    "light": {"hours_low": 6, "hours_high": 18, "gap_low": 32, "gap_high": 70, "skip_chance": 0.40},
+}
+
+
+def _client_payment(rng: random.Random, client: Client, activity: str) -> tuple[Decimal, Decimal]:
+    """Returns (net deposit, hours worked) for one payout."""
+    profile = CLIENT_PROFILES[activity]
+    hours = Decimal(rng.randint(profile["hours_low"], profile["hours_high"]))
     rate = client.default_hourly_rate or Decimal("60")
-    raw = hours * rate
+    gross = hours * rate
+    # Platform fees come out before deposit hits the bank. Direct clients pay net.
     if client.platform in ("Mercor", "Outlier", "Scale"):
-        raw *= Decimal("0.85")  # rough platform/withholding effect
-    return raw.quantize(Decimal("0.01"))
+        net = gross * Decimal("0.88")
+    else:
+        net = gross
+    return net.quantize(Decimal("0.01")), hours
 
 
 def _generate_recurring(
@@ -184,12 +197,16 @@ def seed(rng: random.Random | None = None):
         personal_account = next(a for a in accounts if not a.is_business and "Ally" in a.name)
         credit_card = next(a for a in accounts if a.name == "Apple Card")
 
-        # Clients
-        client_objs = [
-            Client(name=n, platform=p, default_hourly_rate=r) for n, p, r in CLIENTS
-        ]
+        # Clients (activity tag stays in memory, doesn't need a DB column)
+        client_objs = []
+        client_activity: dict[int, str] = {}
+        for name, platform, rate, activity in CLIENTS:
+            c = Client(name=name, platform=platform, default_hourly_rate=rate)
+            client_objs.append(c)
         db.add_all(client_objs)
         db.flush()
+        for c, (_, _, _, activity) in zip(client_objs, CLIENTS):
+            client_activity[c.id] = activity
 
         today = date.today()
         start = (today - timedelta(days=540)).replace(day=1)
@@ -200,18 +217,19 @@ def seed(rng: random.Random | None = None):
         engagements: list[Engagement] = []
 
         for client in client_objs:
-            cursor = start + timedelta(days=rng.randint(0, 30))
+            activity = client_activity[client.id]
+            profile = CLIENT_PROFILES[activity]
+            cursor = start + timedelta(days=rng.randint(0, profile["gap_high"]))
             while cursor <= end:
-                if rng.random() < 0.18:
-                    # Skipped month — dry spell
-                    cursor += timedelta(days=30 + rng.randint(-5, 5))
+                if rng.random() < profile["skip_chance"]:
+                    cursor += timedelta(days=rng.randint(profile["gap_low"], profile["gap_high"]))
                     continue
-                amount = _client_payment(rng, client)
+                net, hours = _client_payment(rng, client, activity)
                 transactions.append(
                     Transaction(
                         account_id=business_account.id,
                         posted_on=cursor,
-                        amount=amount,
+                        amount=net,
                         merchant=client.name,
                         raw_description=f"ACH CREDIT {client.name.upper()} PAYOUT",
                         tx_type=TxType.income,
@@ -220,17 +238,23 @@ def seed(rng: random.Random | None = None):
                         client_id=client.id,
                     )
                 )
-                # Corresponding logged hours, distributed across the prior month.
-                hours_worked = (amount / (client.default_hourly_rate or Decimal("60"))).quantize(Decimal("0.5"))
                 engagements.append(
                     Engagement(
                         client_id=client.id,
-                        worked_on=cursor - timedelta(days=rng.randint(7, 25)),
-                        hours=hours_worked,
+                        worked_on=cursor - timedelta(days=rng.randint(5, 14)),
+                        hours=hours,
                         description=f"{client.name} engagement",
                     )
                 )
-                cursor += timedelta(days=30 + rng.randint(-7, 9))
+                cursor += timedelta(days=rng.randint(profile["gap_low"], profile["gap_high"]))
+
+        # One real dry spell so the variance chart actually has dispersion.
+        dry_spell_start = start + timedelta(days=rng.randint(180, 320))
+        dry_spell_end = dry_spell_start + timedelta(days=rng.randint(35, 55))
+        transactions = [
+            t for t in transactions
+            if not (t.tx_type == TxType.income and dry_spell_start <= t.posted_on <= dry_spell_end)
+        ]
 
         # Business expenses (mix between checking and credit card)
         for pattern in BUSINESS_EXPENSE_PATTERNS:
@@ -242,16 +266,14 @@ def seed(rng: random.Random | None = None):
             acct = credit_card if rng.random() < 0.4 else personal_account
             transactions.extend(_generate_recurring(rng, start, end, pattern, acct, TxScope.personal, cats))
 
-        # Section 179: an occasional big equipment purchase
-        s179_dates = [start + timedelta(days=90), start + timedelta(days=420)]
-        for d in s179_dates:
-            if d > end:
-                continue
-            amount = Decimal(rng.choice([1899, 2299, 3299, 4899]))
+        # Section 179: one real laptop purchase in the back half of the data window.
+        s179_date = start + timedelta(days=rng.randint(380, 480))
+        if s179_date <= end:
+            amount = Decimal(rng.choice([2199, 2899, 3299]))
             transactions.append(
                 Transaction(
                     account_id=business_account.id,
-                    posted_on=d,
+                    posted_on=s179_date,
                     amount=-amount,
                     merchant="Apple Store",
                     raw_description="APPLE STORE MACBOOK PRO",
@@ -263,14 +285,14 @@ def seed(rng: random.Random | None = None):
                 )
             )
 
-        # Health insurance: monthly
+        # Health insurance: monthly. Marketplace silver plan for a single 30-something.
         cursor = start.replace(day=5)
         while cursor <= end:
             transactions.append(
                 Transaction(
                     account_id=business_account.id,
                     posted_on=cursor,
-                    amount=Decimal("-485.00"),
+                    amount=Decimal("-385.00"),
                     merchant="Independence Blue Cross",
                     raw_description="HEALTH INSURANCE PREMIUM",
                     tx_type=TxType.expense,
@@ -278,7 +300,6 @@ def seed(rng: random.Random | None = None):
                     category_id=cats["Health Insurance"].id,
                 )
             )
-            # Add a month
             next_month = cursor.replace(day=1) + timedelta(days=32)
             cursor = next_month.replace(day=5)
 
@@ -308,14 +329,15 @@ def seed(rng: random.Random | None = None):
                 )
             )
 
-        # SEP-IRA contribution (annual lump)
+        # SEP-IRA contribution: a freelancer at this income tier might do 20% of net SE,
+        # which is roughly $8k-12k. Use $7,500 as a believable conservative number.
         sep_date = date(today.year - 1, 12, 20)
         if sep_date >= start:
             transactions.append(
                 Transaction(
                     account_id=business_account.id,
                     posted_on=sep_date,
-                    amount=Decimal("-12000.00"),
+                    amount=Decimal("-7500.00"),
                     merchant="Fidelity SEP-IRA",
                     raw_description="SEP-IRA CONTRIBUTION",
                     tx_type=TxType.expense,

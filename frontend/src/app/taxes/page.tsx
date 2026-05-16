@@ -3,7 +3,9 @@
 import { useState } from "react";
 import useSWR from "swr";
 
+import Section179Calculator from "@/components/Section179Calculator";
 import Stat from "@/components/Stat";
+import WhatIfPanel from "@/components/WhatIfPanel";
 import { api } from "@/lib/api";
 import { money, shortDate } from "@/lib/format";
 
@@ -103,6 +105,9 @@ export default function TaxesPage() {
           </ul>
         </div>
       </div>
+
+      {tax && <Section179Calculator baseline={tax} />}
+      {tax && <WhatIfPanel baseline={tax} />}
 
       <div className="card bg-ink-50">
         <div className="label">Why this matters</div>
