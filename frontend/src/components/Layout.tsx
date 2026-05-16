@@ -28,15 +28,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </a>
         </div>
       )}
-      <header className="border-b border-ink-100 bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <header className="border-b border-ink-100 bg-white sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-lg font-semibold tracking-tight">gigledger</span>
-            <span className="text-xs text-ink-400 hidden sm:inline">
+            <span className="text-xs text-ink-400 hidden md:inline truncate">
               finances built for 1099 work
             </span>
           </div>
-          <nav className="flex gap-1">
+          <nav className="flex gap-0.5 sm:gap-1 overflow-x-auto -mx-1 px-1 scrollbar-thin">
             {nav.map((item) => {
               const active = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href));
               return (
@@ -44,7 +44,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   className={clsx(
-                    "px-3 py-1.5 rounded text-sm",
+                    "px-2.5 sm:px-3 py-1.5 rounded text-sm whitespace-nowrap transition-colors",
                     active ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-100",
                   )}
                 >
@@ -55,10 +55,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">{children}</main>
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">{children}</main>
       <footer className="border-t border-ink-100 bg-white">
-        <div className="max-w-6xl mx-auto px-6 py-4 text-xs text-ink-400">
-          Built by a 1099 filer for 1099 filers. Numbers are estimates, not tax advice. Talk to a CPA before you file.
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 text-xs text-ink-400 flex flex-wrap items-center justify-between gap-2">
+          <span>Built by a 1099 filer for 1099 filers. Numbers are estimates, not tax advice. Talk to a CPA before you file.</span>
+          <a className="underline underline-offset-2 hover:text-ink-600" href="https://github.com/c-tonneslan/gigledger">
+            Source
+          </a>
         </div>
       </footer>
     </div>

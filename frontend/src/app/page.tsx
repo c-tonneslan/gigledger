@@ -4,6 +4,8 @@ import useSWR from "swr";
 
 import HourlyRateTable from "@/components/HourlyRateTable";
 import RunwayPanel from "@/components/RunwayPanel";
+import { CardSkeleton, StatSkeleton } from "@/components/Skeleton";
+import SpendingBreakdown from "@/components/SpendingBreakdown";
 import Stat from "@/components/Stat";
 import VarianceChart from "@/components/VarianceChart";
 import { api } from "@/lib/api";
@@ -14,40 +16,57 @@ export default function DashboardPage() {
   const { data: variance } = useSWR("variance", () => api.variance(12));
   const { data: rates } = useSWR("rates", () => api.hourlyRates(365));
   const { data: tax } = useSWR("tax", () => api.taxProjection());
+  const { data: txs } = useSWR("txs-dashboard", () => api.transactions({ limit: 300 }));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="subtle mt-1">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="subtle mt-1 max-w-2xl">
           Built from the headaches of actually filing my own 2025 return with 1099-NEC income,
           Section 179, and Q1 2026 estimates. The math here is the math I had to do anyway.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat
-          label="YTD business income"
-          value={summary ? money(summary.income) : "—"}
-          hint={summary ? `${summary.transaction_count} transactions in window` : null}
-        />
-        <Stat
-          label="Net after expenses"
-          value={summary ? money(summary.net_business_income) : "—"}
-          hint={summary ? `expenses ${money(summary.business_expenses)}` : null}
-          tone="good"
-        />
-        <Stat
-          label="Next quarterly payment"
-          value={tax ? money(tax.quarterly_payment_due) : "—"}
-          hint={tax ? `due ${shortDate(tax.next_due_date)} · ${tax.state}` : null}
-          tone="warn"
-        />
-        <Stat
-          label="Section 179 YTD"
-          value={summary ? money(summary.section_179_ytd) : "—"}
-          hint="equipment expensed in-year"
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        {summary ? (
+          <Stat
+            label="YTD business income"
+            value={money(summary.income)}
+            hint={`${summary.transaction_count} transactions in window`}
+          />
+        ) : (
+          <StatSkeleton />
+        )}
+        {summary ? (
+          <Stat
+            label="Net after expenses"
+            value={money(summary.net_business_income)}
+            hint={`expenses ${money(summary.business_expenses)}`}
+            tone="good"
+          />
+        ) : (
+          <StatSkeleton />
+        )}
+        {tax ? (
+          <Stat
+            label="Next quarterly payment"
+            value={money(tax.quarterly_payment_due)}
+            hint={`due ${shortDate(tax.next_due_date)} · ${tax.state}`}
+            tone="warn"
+          />
+        ) : (
+          <StatSkeleton />
+        )}
+        {summary ? (
+          <Stat
+            label="Section 179 YTD"
+            value={money(summary.section_179_ytd)}
+            hint="equipment expensed in-year"
+          />
+        ) : (
+          <StatSkeleton />
+        )}
       </div>
 
       {summary && summary.needs_review_count > 0 && (
@@ -69,7 +88,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {variance && <VarianceChart data={variance} />}
+      {variance ? <VarianceChart data={variance} /> : <CardSkeleton />}
+
+      {txs && <SpendingBreakdown transactions={txs} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {variance && <RunwayPanel data={variance} />}

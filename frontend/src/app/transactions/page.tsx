@@ -77,29 +77,29 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
-          <p className="subtle mt-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Transactions</h1>
+          <p className="subtle mt-1 max-w-2xl">
             Correct anything that's wrong. The classifier learns from corrections, so each fix is permanent.
           </p>
         </div>
         <button
           onClick={runClassifier}
           disabled={classifying}
-          className="px-4 py-2 rounded bg-ink-900 text-white text-sm hover:bg-ink-700 disabled:opacity-40"
+          className="px-4 py-2 rounded bg-ink-900 text-white text-sm hover:bg-ink-700 disabled:opacity-40 transition-colors shrink-0 self-start sm:self-auto"
         >
           {classifying ? "Classifying…" : "Classify unreviewed"}
         </button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {(["all", "needs_review", ...SCOPES] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={clsx(
-              "px-3 py-1 rounded text-sm border",
+              "px-3 py-1 rounded text-sm border transition-colors",
               filter === f
                 ? "bg-ink-900 text-white border-ink-900"
                 : "bg-white border-ink-200 text-ink-600 hover:bg-ink-100",
@@ -110,7 +110,8 @@ export default function TransactionsPage() {
         ))}
       </div>
 
-      <div className="card p-0 overflow-hidden">
+      {/* Desktop table */}
+      <div className="card p-0 overflow-hidden hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-ink-400 text-xs uppercase bg-ink-50">
@@ -168,17 +169,78 @@ export default function TransactionsPage() {
                 </td>
               </tr>
             ))}
-            {txs && txs.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-ink-400">
-                  Nothing here. Try a different filter.
-                </td>
-              </tr>
-            )}
+            {txs && txs.length === 0 && <EmptyRow />}
           </tbody>
         </table>
       </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {txs?.map((tx) => (
+          <div key={tx.id} className="card p-3 fade-in">
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{tx.merchant}</div>
+                <div className="text-xs text-ink-400">{shortDate(tx.posted_on)}</div>
+              </div>
+              <div
+                className={clsx(
+                  "tabular-nums font-semibold shrink-0",
+                  Number(tx.amount) > 0 ? "text-accent" : "text-ink-700",
+                )}
+              >
+                {Number(tx.amount) > 0 ? "+" : ""}
+                {money(tx.amount)}
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <div className="label">Scope</div>
+                <ScopeSelect
+                  tx={tx}
+                  onChange={(scope) => patch(tx, { scope, apply_to_merchant: true })}
+                />
+              </div>
+              <div>
+                <div className="label">Client</div>
+                <ClientSelect
+                  tx={tx}
+                  clients={clients || []}
+                  onChange={(client_id) => patch(tx, { client_id, apply_to_merchant: true })}
+                />
+              </div>
+              <div className="col-span-2">
+                <div className="label">Category</div>
+                <CategorySelect
+                  tx={tx}
+                  categories={categories || []}
+                  onChange={(category_id) => patch(tx, { category_id, apply_to_merchant: true })}
+                />
+              </div>
+            </div>
+            {tx.user_corrected && (
+              <div className="text-[10px] text-accent mt-2">user-confirmed → rule</div>
+            )}
+          </div>
+        ))}
+        {txs && txs.length === 0 && (
+          <div className="card text-center text-ink-400 py-8 text-sm">
+            Nothing here. Try a different filter.
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function EmptyRow() {
+  return (
+    <tr>
+      <td colSpan={6} className="px-4 py-10 text-center text-ink-400 text-sm">
+        <div className="font-medium text-ink-600">All clear.</div>
+        <div className="mt-1">Nothing matches that filter. Try another one above.</div>
+      </td>
+    </tr>
   );
 }
 
@@ -194,7 +256,7 @@ function ScopeSelect({
       value={tx.scope}
       onChange={(e) => onChange(e.target.value as Scope)}
       className={clsx(
-        "rounded border border-ink-200 bg-white text-sm px-2 py-1",
+        "w-full md:w-auto rounded border border-ink-200 bg-white text-sm px-2 py-1 mt-1 md:mt-0",
         tx.scope === "unknown" && "border-accent-warn text-accent-warn",
       )}
     >
@@ -220,7 +282,7 @@ function CategorySelect({
     <select
       value={tx.category_id ?? ""}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="rounded border border-ink-200 bg-white text-sm px-2 py-1 max-w-[180px]"
+      className="w-full md:max-w-[180px] rounded border border-ink-200 bg-white text-sm px-2 py-1 mt-1 md:mt-0"
     >
       <option value="" disabled>
         {tx.llm_suggested_category_id ? "suggested…" : "choose"}
@@ -247,7 +309,7 @@ function ClientSelect({
     <select
       value={tx.client_id ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className="rounded border border-ink-200 bg-white text-sm px-2 py-1"
+      className="w-full md:w-auto rounded border border-ink-200 bg-white text-sm px-2 py-1 mt-1 md:mt-0"
     >
       <option value="">—</option>
       {clients.map((c) => (

@@ -22,8 +22,8 @@ export default function TaxesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Taxes</h1>
-        <p className="subtle mt-1">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Taxes</h1>
+        <p className="subtle mt-1 max-w-2xl">
           Self-employment tax, federal income, and state, all rolled up into "the number I have to send the IRS this quarter." Plus the full math so you can sanity-check it against your CPA.
         </p>
       </div>
