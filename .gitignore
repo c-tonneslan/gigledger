@@ -11,5 +11,13 @@ frontend/.next/
 frontend/out/
 frontend/.env*.local
 
+# Playwright
+frontend/playwright-report/
+frontend/test-results/
+
+# Media (large; opt-in by removing this line once you've added a small clip)
+docs/*.mov
+docs/*.mp4
+
 # OS
 .DS_Store

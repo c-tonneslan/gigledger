@@ -4,6 +4,27 @@
 
 A personal finance dashboard for freelancers and 1099 contract workers. Mint, YNAB, and Copilot all assume a W2 paycheck and crumble the moment you start chasing 1040-ES deadlines, Section 179 deductions, and platform-fee math for Mercor / Outlier / Upwork. This is the tool I wanted when I filed my own 2025 return.
 
+## Demo
+
+Walk through it in the [live deployment](https://gigledger-lovat.vercel.app). The path that shows the most domain depth in 30 seconds:
+
+1. **Dashboard** — the **Tax reserve gap** widget tells you the dollar amount to move into savings before the next 1040-ES, the **Quarterly pacing** bar shows whether you're on safe-harbor pace, and the **Income volatility** chart extends three months past today with a forecast line.
+2. **Transactions** — `j` / `k` to navigate the inbox, `b` / `p` / `u` to set scope. Every correction trains a `MerchantRule` so the next charge from that merchant skips the LLM entirely.
+3. **Taxes** — the **Schedule C preview** card lays out gross receipts, expenses by IRS line number, and Section 179 separately. The **Section 179 calculator** slides equipment price + business use % and computes effective cost after the federal + SE + state tax-stack savings. **What-If** panel shows the marginal take-home rate on the next dollar of contract income.
+4. **Clients/[id]** — click any client name for payment history, monthly gross bars, and a rolling effective-rate line vs. quoted rate.
+
+<details>
+<summary>Screenshots and recording</summary>
+
+Local recordings go in [`docs/`](docs/) (gitignored from the repo by default since they get heavy):
+
+- `docs/demo.gif` — embed at the top of this README once captured.
+- `docs/screenshot-dashboard.png`, `docs/screenshot-taxes.png` — annotated stills.
+
+`docs/README.md` has the ffmpeg command to convert a Cmd+Shift+5 screen recording into a sensible gif.
+
+</details>
+
 ## Why it exists
 
 I filed my own 2025 taxes as a 1099-NEC contractor. Schedule C, Schedule SE, Section 179 on a laptop, the works. Then I had to figure out Q1 2026 estimated payments without a CFO sitting next to me. The pain points were not novel, every freelancer hits them:
@@ -128,6 +149,24 @@ The real work is in the domain logic:
 - It won't file your taxes. Talk to a CPA. The QBI calc here is the simplified version and ignores SSTB phaseouts. The safe-harbor 110%-of-prior-year method isn't modeled.
 - It doesn't reconcile invoices to bank deposits yet, so platform fees show up as a haircut on the deposit, not as a separate line.
 - State income tax is detailed for flat-rate states and rough for progressive ones. The dropdown surfaces this honestly.
+
+## Tests
+
+Two layers:
+
+```bash
+# Backend: pins the tax math (SE wage-base cap, additional Medicare, PA flat rate,
+# Section 179 reducing net 1:1, quarterly catch-up logic).
+cd backend && .venv/bin/python -m pytest tests/ -q
+
+# Frontend: Playwright e2e smoke suite against the live demo. Verifies dashboard
+# KPIs render, the Section 179 calculator recomputes when inputs change, the
+# transactions inbox filters work, client detail pages load, and dark mode persists.
+cd frontend && npx playwright test
+```
+
+The Playwright suite points at `https://gigledger-lovat.vercel.app` by default; set
+`PLAYWRIGHT_BASE_URL=http://localhost:3000` to run against a local `next dev` instead.
 
 ## Deploying
 
