@@ -16,6 +16,7 @@ class AccountOut(BaseModel):
     institution: str
     mask: str
     is_business: bool
+    is_tax_reserve: bool = False
     current_balance: Decimal
 
 

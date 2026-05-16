@@ -32,6 +32,8 @@ class Account(Base):
     mask: Mapped[str] = mapped_column(String(8))
     plaid_account_id: Mapped[Optional[str]] = mapped_column(String(80), unique=True)
     is_business: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Whether the user treats this account as their tax-set-aside bucket.
+    is_tax_reserve: Mapped[bool] = mapped_column(Boolean, default=False)
     current_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

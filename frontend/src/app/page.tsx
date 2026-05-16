@@ -3,10 +3,13 @@
 import useSWR from "swr";
 
 import HourlyRateTable from "@/components/HourlyRateTable";
+import IncomeByClient from "@/components/IncomeByClient";
+import QuarterlyProgress from "@/components/QuarterlyProgress";
 import RunwayPanel from "@/components/RunwayPanel";
 import { CardSkeleton, StatSkeleton } from "@/components/Skeleton";
 import SpendingBreakdown from "@/components/SpendingBreakdown";
 import Stat from "@/components/Stat";
+import TaxReservePanel from "@/components/TaxReservePanel";
 import VarianceChart from "@/components/VarianceChart";
 import { api } from "@/lib/api";
 import { money, shortDate } from "@/lib/format";
@@ -17,6 +20,7 @@ export default function DashboardPage() {
   const { data: rates } = useSWR("rates", () => api.hourlyRates(365));
   const { data: tax } = useSWR("tax", () => api.taxProjection());
   const { data: txs } = useSWR("txs-dashboard", () => api.transactions({ limit: 300 }));
+  const { data: accounts } = useSWR("accounts", api.accounts);
 
   return (
     <div className="space-y-6">
@@ -88,7 +92,18 @@ export default function DashboardPage() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {accounts && tax ? (
+          <TaxReservePanel accounts={accounts} tax={tax} />
+        ) : (
+          <CardSkeleton height="h-40" />
+        )}
+        {tax ? <QuarterlyProgress tax={tax} /> : <CardSkeleton height="h-40" />}
+      </div>
+
       {variance ? <VarianceChart data={variance} /> : <CardSkeleton />}
+
+      {txs && <IncomeByClient transactions={txs} />}
 
       {txs && <SpendingBreakdown transactions={txs} />}
 

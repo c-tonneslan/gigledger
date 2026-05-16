@@ -52,12 +52,13 @@ CATEGORIES = [
     ("Uncategorized", None, False, False, "Needs review"),
 ]
 
+# (name, institution, mask, is_business, balance, is_tax_reserve)
 ACCOUNTS = [
-    ("Chase Business Checking", "Chase", "4421", True, Decimal("14820.00")),
-    ("Ally Personal Checking", "Ally", "9182", False, Decimal("3640.00")),
-    ("Apple Card", "Apple", "0007", False, Decimal("0.00")),
-    ("Marcus High-Yield Savings", "Marcus", "8821", True, Decimal("18200.00")),
-    ("SEP-IRA (Fidelity)", "Fidelity", "5510", True, Decimal("9800.00")),
+    ("Chase Business Checking", "Chase", "4421", True, Decimal("14820.00"), False),
+    ("Ally Personal Checking", "Ally", "9182", False, Decimal("3640.00"), False),
+    ("Apple Card", "Apple", "0007", False, Decimal("0.00"), False),
+    ("Marcus Tax Reserve", "Marcus", "8821", True, Decimal("6200.00"), True),
+    ("SEP-IRA (Fidelity)", "Fidelity", "5510", True, Decimal("9800.00"), False),
 ]
 
 # (name, platform, default_rate, activity)
@@ -189,8 +190,15 @@ def seed(rng: random.Random | None = None):
 
         # Accounts
         accounts = []
-        for name, inst, mask, biz, bal in ACCOUNTS:
-            a = Account(name=name, institution=inst, mask=mask, is_business=biz, current_balance=bal)
+        for name, inst, mask, biz, bal, reserve in ACCOUNTS:
+            a = Account(
+                name=name,
+                institution=inst,
+                mask=mask,
+                is_business=biz,
+                is_tax_reserve=reserve,
+                current_balance=bal,
+            )
             accounts.append(a)
         db.add_all(accounts)
         db.flush()

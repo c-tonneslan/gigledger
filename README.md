@@ -17,10 +17,19 @@ GigLedger handles those four things. Everything else is a distraction.
 
 ## What's in the box
 
-- **Dashboard** — YTD income, net after expenses, next quarterly payment, and a runway projection that's honest about what happens if the worst month repeats.
-- **Transactions** — Plaid-backed inbox (sandbox in dev, demo seed otherwise) with LLM-suggested categories. Every correction trains a merchant rule, so the LLM call drops to zero as you work through history.
+- **Dashboard** — YTD income, net after expenses, next quarterly payment, a runway projection that's honest about what happens if the worst month repeats, plus:
+  - **Tax reserve gap** — what you owe this year minus what you've already paid and what's already in your tax savings account. The single most common 1099 mistake is spending the gross deposit instead of setting aside the tax share. This catches it.
+  - **Quarterly pacing** — visual progress bar against the IRS 1040-ES schedule with a dashed "where you should be by today" marker.
+  - **Income volatility** — monthly net with rolling 90-day average and a 3-month forecast line that extends past the last data point.
+  - **Income by client** — stacked area showing which client carried which month, so dry spells are interpretable (one client went quiet vs. everyone slowed).
+  - **Spending breakdown** — YTD deductible expenses by category donut, top six surfaced, rest rolled into Other.
+- **Transactions** — Plaid-backed inbox (sandbox in dev, demo seed otherwise) with LLM-suggested categories. Every correction trains a merchant rule, so the LLM call drops to zero as you work through history. Keyboard nav: `j`/`k` move, `b`/`p`/`u` set scope, `Esc` clears.
 - **Clients** — effective hourly rate per client over the last year. Quoted rate vs. take-home delta, so you can see exactly which platforms are eating your margin.
-- **Taxes** — full Schedule C math projected forward: SE tax, federal income, state (PA defaults to 3.07% flat), QBI deduction, half-SE deduction. State dropdown for the rest. Notes call out the simplifications so it's clear what it does and doesn't model.
+- **Taxes** — full Schedule C math projected forward: SE tax, federal income, state (PA defaults to 3.07% flat), QBI deduction, half-SE deduction. State dropdown for the rest. Plus:
+  - **Schedule C preview** card that lays out gross receipts and expense lines with real IRS line numbers (18 Office, 22 Supplies, 24a/b Travel/Meals, 30 Home office, line 13 for Section 179). Useful sanity check before sending the year-end pack to a CPA.
+  - **Section 179 calculator** — input equipment price + business use %, output effective cost after the federal + SE + state stack. Buy-this-year vs. next-year toggle.
+  - **What-if income panel** — slider for extra contract income / extra deductible expenses with live recompute of total tax and effective take-home rate.
+  - **Jargon tooltips** on terms like SE tax, QBI, Section 179, 1040-ES, safe harbor.
 
 ## Stack
 
@@ -29,6 +38,50 @@ GigLedger handles those four things. Everything else is a distraction.
 - **DB:** Postgres in prod, SQLite fallback in dev (no Postgres install needed to demo).
 - **Bank data:** Plaid (sandbox). Falls back to seeded synthetic data when keys aren't configured, so the repo is demo-able without a Plaid account.
 - **LLM:** Anthropic Claude (Haiku for cost). Only used to categorize novel merchants; rules take over after the first user correction.
+
+## Architecture
+
+```
+                    +---------------------------+
+                    |   Plaid (sandbox)         |
+                    |   Anthropic Claude Haiku  |
+                    +-----+----------------+----+
+                          |                |
+                  link/exchange     classify on miss
+                          |                |
+                          v                v
++--------------------+   +-----------------------------+
+|  Next.js (Vercel)  |   |   FastAPI (uvicorn)         |
+|  - App Router      |<->|   /transactions  /taxes     |
+|  - SWR cache       |   |   /clients       /analytics |
+|  - Recharts        |   |   /plaid         /accounts  |
+|  - TS tax engine   |   +--------------+--------------+
+|    (mirrors py)    |                  |
++--------------------+                  v
+        ^                  +--------------------------+
+        |                  |  SQLAlchemy 2.0 models   |
+   /demo/*.json            |  Postgres (prod)         |
+   for static demo         |  SQLite (local dev)      |
+                           +--------------------------+
+                                       |
+                                       v
+                           +--------------------------+
+                           |   Domain logic           |
+                           |   - tax.py (SE, QBI,     |
+                           |     federal, state, 179) |
+                           |   - analytics.py         |
+                           |     (variance, rates,    |
+                           |      runway)             |
+                           |   - classifier.py        |
+                           |     (rules + LLM)        |
+                           +--------------------------+
+```
+
+Two things worth calling out:
+
+1. **The static demo and the live app share the React tree.** The frontend has a single `NEXT_PUBLIC_DEMO_MODE` flag that swaps every API call for a pre-baked JSON read out of `frontend/public/demo/`. So the portfolio link works without a backend, but `npm run dev` against `uvicorn` exercises the same code paths.
+
+2. **Tax math lives in two places on purpose.** [`backend/app/tax.py`](backend/app/tax.py) is the source of truth and has the pytest coverage. [`frontend/src/lib/tax.ts`](frontend/src/lib/tax.ts) is a 1:1 TypeScript port that powers the Section 179 calculator and the what-if income panel, so those run client-side with no round-trip. The values are verified to match (SE on $100k = $14,129.55 in both languages).
 
 ## Running it locally
 

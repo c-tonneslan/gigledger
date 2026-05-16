@@ -7,6 +7,7 @@ export type Account = {
   institution: string;
   mask: string;
   is_business: boolean;
+  is_tax_reserve?: boolean;
   current_balance: string;
 };
 
