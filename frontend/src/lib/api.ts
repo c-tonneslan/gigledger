@@ -83,6 +83,22 @@ export type HourlyRate = {
   quoted_rate: string | null;
 };
 
+export type ScheduleC = {
+  year: number;
+  gross_receipts: string;
+  expense_lines: {
+    category_id: number;
+    category_name: string;
+    schedule_c_line: string | null;
+    amount: string;
+    count: number;
+  }[];
+  section_179_amount: string;
+  total_expenses: string;
+  net_profit: string;
+  as_of: string;
+};
+
 export type Variance = {
   points: { month: string; net_income: string; rolling_90d_avg: string }[];
   rolling_90d_stddev: string;
@@ -211,4 +227,8 @@ export const api = {
     DEMO_MODE
       ? demoFetch<Variance>("/variance.json")
       : request<Variance>(`/analytics/variance?months_back=${months_back}`),
+  scheduleC: () =>
+    DEMO_MODE
+      ? demoFetch<ScheduleC>("/schedule-c.json")
+      : request<ScheduleC>("/taxes/schedule-c"),
 };

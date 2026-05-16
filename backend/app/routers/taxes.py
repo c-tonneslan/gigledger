@@ -107,6 +107,86 @@ def projection(
     )
 
 
+@router.get("/schedule-c")
+def schedule_c_preview(db: Session = Depends(get_db), year: Optional[int] = None):
+    """
+    Returns a Schedule C-style summary grouped by category, with the IRS line
+    number when known. This is a preview of what would land on Schedule C if
+    you closed the books today, not a generated form. Useful sanity check
+    before sending anything to a CPA.
+    """
+    year = year or date.today().year
+    year_start = date(year, 1, 1)
+    year_end = date(year, 12, 31)
+
+    txs = list(
+        db.scalars(
+            select(Transaction).where(
+                Transaction.posted_on >= year_start,
+                Transaction.posted_on <= year_end,
+            )
+        )
+    )
+
+    gross_receipts = sum(
+        (Decimal(t.amount) for t in txs if t.tx_type == TxType.income and t.scope == TxScope.business),
+        Decimal(0),
+    )
+
+    # Group expenses by category, surface the Schedule C line, exclude non-operating buckets.
+    excluded = {"Estimated Taxes Paid", "Retirement (SEP-IRA)"}
+    cat_index: dict[int, dict] = {}
+    for t in txs:
+        if t.tx_type != TxType.expense or t.scope != TxScope.business:
+            continue
+        if not t.category:
+            continue
+        if t.category.name in excluded:
+            continue
+        # Section 179 items get their own line. Skip them in the regular categories.
+        if Decimal(t.section_179_amount) > 0:
+            continue
+        cid = t.category.id
+        entry = cat_index.setdefault(
+            cid,
+            {
+                "category_id": cid,
+                "category_name": t.category.name,
+                "schedule_c_line": t.category.schedule_c_line,
+                "total": Decimal(0),
+                "count": 0,
+            },
+        )
+        entry["total"] += abs(Decimal(t.amount))
+        entry["count"] += 1
+
+    expense_lines = [
+        {
+            "category_id": v["category_id"],
+            "category_name": v["category_name"],
+            "schedule_c_line": v["schedule_c_line"],
+            "amount": v["total"].quantize(Decimal("0.01")),
+            "count": v["count"],
+        }
+        for v in cat_index.values()
+    ]
+    expense_lines.sort(key=lambda r: r["amount"], reverse=True)
+
+    section_179_total = sum((Decimal(t.section_179_amount) for t in txs), Decimal(0))
+    expenses_total = sum((Decimal(r["amount"]) for r in expense_lines), Decimal(0))
+    net_profit = gross_receipts - expenses_total - section_179_total
+
+    return {
+        "year": year,
+        "gross_receipts": gross_receipts.quantize(Decimal("0.01")),
+        "expense_lines": expense_lines,
+        "section_179_amount": section_179_total.quantize(Decimal("0.01")),
+        "total_expenses": expenses_total.quantize(Decimal("0.01")),
+        "net_profit": net_profit.quantize(Decimal("0.01")),
+        "as_of": date.today().isoformat(),
+    }
+
+
 @router.get("/payments", response_model=list[EstimatedPaymentOut])
 def list_payments(db: Session = Depends(get_db)):
     return list(db.scalars(select(EstimatedPayment).order_by(EstimatedPayment.paid_on.desc())))

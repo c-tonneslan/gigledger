@@ -6,7 +6,7 @@ export default function Stat({
   hint,
   tone,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: React.ReactNode;
   hint?: React.ReactNode;
   tone?: "warn" | "good";

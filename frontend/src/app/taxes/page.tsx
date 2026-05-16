@@ -3,6 +3,8 @@
 import { useState } from "react";
 import useSWR from "swr";
 
+import JargonTip from "@/components/JargonTip";
+import ScheduleCPreview from "@/components/ScheduleCPreview";
 import Section179Calculator from "@/components/Section179Calculator";
 import Stat from "@/components/Stat";
 import WhatIfPanel from "@/components/WhatIfPanel";
@@ -18,6 +20,7 @@ export default function TaxesPage() {
   const { data: tax } = useSWR(["tax", state, filing], () =>
     api.taxProjection(state, filing),
   );
+  const { data: scheduleC } = useSWR("schedule-c", api.scheduleC);
 
   return (
     <div className="space-y-6">
@@ -54,19 +57,19 @@ export default function TaxesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Stat
           label="Next payment due"
           value={tax ? money(tax.quarterly_payment_due) : "—"}
           hint={tax ? shortDate(tax.next_due_date) : null}
           tone="warn"
         />
-        <Stat label="SE tax (annual)" value={tax ? money(tax.se_tax) : "—"} />
-        <Stat label="Federal income" value={tax ? money(tax.federal_income_tax) : "—"} />
         <Stat
-          label={`${state} income`}
-          value={tax ? money(tax.state_income_tax) : "—"}
+          label={<JargonTip term="SE tax">SE tax (annual)</JargonTip>}
+          value={tax ? money(tax.se_tax) : "—"}
         />
+        <Stat label="Federal income" value={tax ? money(tax.federal_income_tax) : "—"} />
+        <Stat label={`${state} income`} value={tax ? money(tax.state_income_tax) : "—"} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -106,6 +109,8 @@ export default function TaxesPage() {
         </div>
       </div>
 
+      {scheduleC && <ScheduleCPreview data={scheduleC} />}
+
       {tax && <Section179Calculator baseline={tax} />}
       {tax && <WhatIfPanel baseline={tax} />}
 
@@ -114,9 +119,11 @@ export default function TaxesPage() {
         <p className="text-sm mt-2 text-ink-700">
           Most consumer finance tools assume your employer is already withholding the right
           amount. As a 1099 contractor that's not true; if you wait until April you owe
-          ~15% on top of income tax for self-employment tax alone, plus penalties for missing
-          quarterly safe-harbor. The projection here uses your YTD data, annualized, so the
-          number on the dashboard tracks reality as it builds.
+          ~15% on top of income tax for <JargonTip term="SE tax" /> alone, plus penalties
+          for missing the <JargonTip term="1040-ES">quarterly</JargonTip> {" "}
+          <JargonTip term="Safe harbor">safe-harbor</JargonTip>. The projection here uses
+          your YTD data, annualized, so the number on the dashboard tracks reality as it
+          builds.
         </p>
       </div>
     </div>

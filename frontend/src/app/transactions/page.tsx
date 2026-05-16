@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate } from "swr";
 import clsx from "clsx";
 
@@ -19,6 +19,8 @@ function ScopePill({ scope }: { scope: Scope }) {
 export default function TransactionsPage() {
   const [filter, setFilter] = useState<Scope | "needs_review" | "all">("all");
   const [classifying, setClassifying] = useState(false);
+  const [cursor, setCursor] = useState<number | null>(null);
+  const rowRefs = useRef(new Map<number, HTMLElement>());
 
   const { data: categories } = useSWR("categories", api.categories);
   const { data: clients } = useSWR("clients", api.clients);
@@ -32,6 +34,14 @@ export default function TransactionsPage() {
     ["transactions", filter],
     () => api.transactions(params),
   );
+
+  useEffect(() => {
+    setCursor((current) => {
+      if (!txs || txs.length === 0) return null;
+      if (current != null && txs.some((t) => t.id === current)) return current;
+      return txs[0].id;
+    });
+  }, [txs]);
 
   async function patch(tx: Transaction, body: Parameters<typeof api.updateTransaction>[1]) {
     await api.updateTransaction(tx.id, body);
@@ -54,6 +64,42 @@ export default function TransactionsPage() {
       await mutate("summary");
     }
   }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Skip when the user is typing in a form control.
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      if (!txs || txs.length === 0) return;
+
+      const idx = cursor == null ? -1 : txs.findIndex((t) => t.id === cursor);
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = Math.min(txs.length - 1, idx + 1);
+        const id = txs[next < 0 ? 0 : next].id;
+        setCursor(id);
+        rowRefs.current.get(id)?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const next = Math.max(0, idx - 1);
+        const id = txs[next].id;
+        setCursor(id);
+        rowRefs.current.get(id)?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Escape") {
+        setCursor(null);
+      } else if ((e.key === "b" || e.key === "p" || e.key === "u") && idx >= 0) {
+        e.preventDefault();
+        const scope: Scope = e.key === "b" ? "business" : e.key === "p" ? "personal" : "unknown";
+        patch(txs[idx], { scope, apply_to_merchant: true });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txs, cursor]);
 
   async function runClassifier() {
     setClassifying(true);
@@ -82,6 +128,17 @@ export default function TransactionsPage() {
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Transactions</h1>
           <p className="subtle mt-1 max-w-2xl">
             Correct anything that's wrong. The classifier learns from corrections, so each fix is permanent.
+          </p>
+          <p className="text-xs text-ink-400 mt-2 hidden md:block">
+            Shortcuts:{" "}
+            <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px]">j</kbd>
+            <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px] ml-1">k</kbd>{" "}
+            navigate ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px]">b</kbd>{" "}
+            <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px]">p</kbd>{" "}
+            <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px]">u</kbd>{" "}
+            scope · <kbd className="px-1.5 py-0.5 bg-ink-100 rounded font-mono text-[10px]">esc</kbd>{" "}
+            clear
           </p>
         </div>
         <button
@@ -125,7 +182,18 @@ export default function TransactionsPage() {
           </thead>
           <tbody>
             {txs?.map((tx) => (
-              <tr key={tx.id} className="border-t border-ink-100 hover:bg-ink-50/50">
+              <tr
+                key={tx.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(tx.id, el);
+                  else rowRefs.current.delete(tx.id);
+                }}
+                onClick={() => setCursor(tx.id)}
+                className={clsx(
+                  "border-t border-ink-100 transition-colors",
+                  cursor === tx.id ? "bg-accent-soft/40" : "hover:bg-ink-50/50",
+                )}
+              >
                 <td className="px-4 py-2 whitespace-nowrap text-ink-500">{shortDate(tx.posted_on)}</td>
                 <td className="px-4 py-2">
                   <div className="font-medium">{tx.merchant}</div>
@@ -177,7 +245,18 @@ export default function TransactionsPage() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-3">
         {txs?.map((tx) => (
-          <div key={tx.id} className="card p-3 fade-in">
+          <div
+            key={tx.id}
+            ref={(el) => {
+              if (el) rowRefs.current.set(tx.id, el);
+              else rowRefs.current.delete(tx.id);
+            }}
+            onClick={() => setCursor(tx.id)}
+            className={clsx(
+              "card p-3 fade-in transition-colors",
+              cursor === tx.id && "ring-2 ring-accent",
+            )}
+          >
             <div className="flex items-baseline justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium truncate">{tx.merchant}</div>
