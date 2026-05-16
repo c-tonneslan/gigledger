@@ -1,5 +1,7 @@
 # GigLedger
 
+**Live demo: <https://gigledger-lovat.vercel.app>** (synthetic data, edits don't persist)
+
 A personal finance dashboard for freelancers and 1099 contract workers. Mint, YNAB, and Copilot all assume a W2 paycheck and crumble the moment you start chasing 1040-ES deadlines, Section 179 deductions, and platform-fee math for Mercor / Outlier / Upwork. This is the tool I wanted when I filed my own 2025 return.
 
 ## Why it exists
