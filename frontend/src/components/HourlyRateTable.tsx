@@ -1,9 +1,16 @@
+import Link from "next/link";
 import clsx from "clsx";
 
 import { money, moneyPrecise } from "@/lib/format";
 import type { HourlyRate } from "@/lib/api";
 
-export default function HourlyRateTable({ rates }: { rates: HourlyRate[] }) {
+export default function HourlyRateTable({
+  rates,
+  linkable = false,
+}: {
+  rates: HourlyRate[];
+  linkable?: boolean;
+}) {
   return (
     <div className="card">
       <div className="label">Effective hourly rate by client (last 12 months)</div>
@@ -29,7 +36,15 @@ export default function HourlyRateTable({ rates }: { rates: HourlyRate[] }) {
               const delta = quoted && effective ? effective - quoted : null;
               return (
                 <tr key={r.client_id} className="border-t border-ink-100">
-                  <td className="py-2 font-medium">{r.client_name}</td>
+                  <td className="py-2 font-medium">
+                    {linkable ? (
+                      <Link className="link" href={`/clients/${r.client_id}`}>
+                        {r.client_name}
+                      </Link>
+                    ) : (
+                      r.client_name
+                    )}
+                  </td>
                   <td className="py-2 text-right tabular-nums">{money(r.gross_income)}</td>
                   <td className="py-2 text-right tabular-nums">{Number(r.hours).toFixed(1)}</td>
                   <td className="py-2 text-right tabular-nums text-ink-400">
@@ -62,7 +77,15 @@ export default function HourlyRateTable({ rates }: { rates: HourlyRate[] }) {
           return (
             <li key={r.client_id} className="rounded-lg border border-ink-100 p-3">
               <div className="flex items-baseline justify-between">
-                <div className="font-medium">{r.client_name}</div>
+                <div className="font-medium">
+                  {linkable ? (
+                    <Link className="link" href={`/clients/${r.client_id}`}>
+                      {r.client_name}
+                    </Link>
+                  ) : (
+                    r.client_name
+                  )}
+                </div>
                 <div className="text-right tabular-nums">
                   <div className="text-lg font-semibold">
                     {effective ? moneyPrecise(effective) : "-"}

@@ -24,14 +24,22 @@ export default function TaxesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Taxes</h1>
-        <p className="subtle mt-1 max-w-2xl">
-          Self-employment tax, federal income, and state, all rolled up into "the number I have to send the IRS this quarter." Plus the full math so you can sanity-check it against your CPA.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Taxes</h1>
+          <p className="subtle mt-1 max-w-2xl">
+            Self-employment tax, federal income, and state, all rolled up into "the number I have to send the IRS this quarter." Plus the full math so you can sanity-check it against your CPA.
+          </p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="print-hide text-sm px-3 py-1.5 rounded border border-ink-200 hover:bg-ink-100 transition-colors"
+        >
+          Print / save PDF
+        </button>
       </div>
 
-      <div className="flex flex-wrap gap-4 items-end">
+      <div className="flex flex-wrap gap-4 items-end print-hide">
         <div>
           <div className="label mb-1">State</div>
           <select
@@ -111,10 +119,13 @@ export default function TaxesPage() {
 
       {scheduleC && <ScheduleCPreview data={scheduleC} />}
 
+      <div className="print-hide space-y-6">
       {tax && <Section179Calculator baseline={tax} />}
       {tax && <WhatIfPanel baseline={tax} />}
 
-      <div className="card bg-ink-50">
+      </div>
+
+      <div className="card bg-ink-50 print-hide">
         <div className="label">Why this matters</div>
         <p className="text-sm mt-2 text-ink-700">
           Most consumer finance tools assume your employer is already withholding the right

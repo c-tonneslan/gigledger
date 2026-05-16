@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import useSWR from "swr";
 
 import HourlyRateTable from "@/components/HourlyRateTable";
 import { api } from "@/lib/api";
-import { money, moneyPrecise } from "@/lib/format";
+import { moneyPrecise } from "@/lib/format";
 
 export default function ClientsPage() {
   const { data: clients } = useSWR("clients", api.clients);
@@ -20,7 +21,7 @@ export default function ClientsPage() {
         </p>
       </div>
 
-      {rates && <HourlyRateTable rates={rates} />}
+      {rates && <HourlyRateTable rates={rates} linkable />}
 
       <div className="card">
         <div className="label">Client roster</div>
@@ -36,7 +37,9 @@ export default function ClientsPage() {
             {clients?.map((c) => (
               <tr key={c.id} className="border-t border-ink-100">
                 <td className="py-2 font-medium">
-                  {c.name}
+                  <Link className="link" href={`/clients/${c.id}`}>
+                    {c.name}
+                  </Link>
                   <span className="sm:hidden ml-2 text-xs text-ink-400 font-normal">
                     {c.platform || "Direct"}
                   </span>

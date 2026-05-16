@@ -4,28 +4,65 @@
 
 :root {
   color-scheme: light;
+  --bg-app: #f7f7f6;
+  --bg-card: #ffffff;
+  --bg-elev: #ffffff;
+  --bg-soft: #eeeeec;
+  --border-soft: #eeeeec;
+  --border-strong: #d8d8d4;
+  --text-strong: #1c1c19;
+  --text-muted: #5d5d57;
+  --text-faint: #878781;
+  --accent: #1f8a5a;
+  --accent-soft: #dbf3e4;
+  --accent-warn: #c2410c;
+  --accent-warn-soft: #fde6d3;
+  --skel-base: #eeeeec;
+}
+
+html.dark {
+  color-scheme: dark;
+  --bg-app: #0e0e0c;
+  --bg-card: #1c1c19;
+  --bg-elev: #2a2a26;
+  --bg-soft: #2a2a26;
+  --border-soft: #2a2a26;
+  --border-strong: #3d3d38;
+  --text-strong: #f7f7f6;
+  --text-muted: #b8b8b1;
+  --text-faint: #878781;
+  --accent: #4cc792;
+  --accent-soft: #1f3a2b;
+  --accent-warn: #f97316;
+  --accent-warn-soft: #3a1f0c;
+  --skel-base: #2a2a26;
 }
 
 html, body {
-  background: #f7f7f6;
-  color: #1c1c19;
+  background: var(--bg-app);
+  color: var(--text-strong);
   font-feature-settings: "ss01", "cv02";
 }
 
 .card {
-  @apply bg-white border border-ink-100 rounded-lg p-5 shadow-sm;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  @apply rounded-lg p-5 shadow-sm;
 }
 
 .label {
-  @apply text-xs uppercase tracking-wide text-ink-400 font-medium;
+  @apply text-xs uppercase tracking-wide font-medium;
+  color: var(--text-faint);
 }
 
 .metric {
-  @apply text-3xl font-semibold text-ink-900 tabular-nums;
+  @apply text-3xl font-semibold tabular-nums;
+  color: var(--text-strong);
 }
 
 .subtle {
-  @apply text-sm text-ink-500;
+  @apply text-sm;
+  color: var(--text-muted);
 }
 
 .pill {
@@ -33,23 +70,31 @@ html, body {
 }
 
 .pill-business {
-  @apply pill bg-accent-soft text-accent;
+  @apply pill;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .pill-personal {
-  @apply pill bg-ink-100 text-ink-600;
+  @apply pill;
+  background: var(--bg-soft);
+  color: var(--text-muted);
 }
 
 .pill-unknown {
-  @apply pill bg-accent-warnSoft text-accent-warn;
+  @apply pill;
+  background: var(--accent-warn-soft);
+  color: var(--accent-warn);
 }
 
 .link {
-  @apply text-accent hover:underline underline-offset-2;
+  color: var(--accent);
+  @apply hover:underline underline-offset-2;
 }
 
 .skel {
-  @apply rounded bg-ink-100 relative overflow-hidden;
+  @apply rounded relative overflow-hidden;
+  background: var(--skel-base);
 }
 
 .skel::after {
@@ -90,4 +135,74 @@ html, body {
 /* Make horizontal scrollbars on nav less ugly */
 .scrollbar-thin::-webkit-scrollbar {
   height: 0;
+}
+
+/* Dark mode overrides for the most common Tailwind utility classes. Cheaper than threading
+   dark: variants through every component, and keeps the component code identical between
+   modes. */
+html.dark .bg-white { background-color: var(--bg-card) !important; }
+html.dark .bg-ink-50 { background-color: var(--bg-soft) !important; }
+html.dark .bg-ink-100 { background-color: var(--bg-soft) !important; }
+html.dark .bg-ink-900 { background-color: var(--bg-elev) !important; color: var(--text-strong); }
+html.dark .bg-ink-700 { background-color: var(--bg-soft) !important; }
+html.dark .border-ink-100 { border-color: var(--border-soft) !important; }
+html.dark .border-ink-200 { border-color: var(--border-strong) !important; }
+html.dark .border-ink-300 { border-color: var(--border-strong) !important; }
+html.dark .text-ink-400 { color: var(--text-faint) !important; }
+html.dark .text-ink-500 { color: var(--text-muted) !important; }
+html.dark .text-ink-600 { color: var(--text-muted) !important; }
+html.dark .text-ink-700 { color: var(--text-strong) !important; }
+html.dark .text-ink-900 { color: var(--text-strong) !important; }
+html.dark .text-accent { color: var(--accent) !important; }
+html.dark .bg-accent { background-color: var(--accent) !important; }
+html.dark .bg-accent-soft { background-color: var(--accent-soft) !important; }
+html.dark .text-accent-warn { color: var(--accent-warn) !important; }
+html.dark .bg-accent-warnSoft { background-color: var(--accent-warn-soft) !important; }
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--bg-card);
+  color: var(--text-strong);
+  border-color: var(--border-strong);
+}
+html.dark .hover\:bg-ink-100:hover { background-color: var(--bg-soft) !important; }
+html.dark .hover\:bg-ink-50\/50:hover { background-color: var(--bg-soft) !important; }
+html.dark kbd { background-color: var(--bg-soft) !important; color: var(--text-strong); }
+
+/* Print: strip chrome, only show what a CPA would care about. */
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+  body {
+    background: white !important;
+    color: #1c1c19 !important;
+  }
+  header,
+  footer,
+  nav,
+  .print-hide {
+    display: none !important;
+  }
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .card {
+    border: 1px solid #b8b8b1 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 12px;
+  }
+  .skel,
+  button {
+    display: none !important;
+  }
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+  table {
+    page-break-inside: avoid;
+  }
 }

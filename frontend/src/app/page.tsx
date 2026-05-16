@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 
+import ActivityFeed from "@/components/ActivityFeed";
 import HourlyRateTable from "@/components/HourlyRateTable";
 import IncomeByClient from "@/components/IncomeByClient";
 import QuarterlyProgress from "@/components/QuarterlyProgress";
@@ -136,7 +137,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {rates && <HourlyRateTable rates={rates} />}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {rates && <HourlyRateTable rates={rates} linkable />}
+        {txs && <ActivityFeed transactions={txs} />}
+      </div>
     </div>
   );
 }
