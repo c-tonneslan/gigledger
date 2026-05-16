@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: #f7f7f6;
+  color: #1c1c19;
+  font-feature-settings: "ss01", "cv02";
+}
+
+.card {
+  @apply bg-white border border-ink-100 rounded-lg p-5 shadow-sm;
+}
+
+.label {
+  @apply text-xs uppercase tracking-wide text-ink-400 font-medium;
+}
+
+.metric {
+  @apply text-3xl font-semibold text-ink-900 tabular-nums;
+}
+
+.subtle {
+  @apply text-sm text-ink-500;
+}
+
+.pill {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.pill-business {
+  @apply pill bg-accent-soft text-accent;
+}
+
+.pill-personal {
+  @apply pill bg-ink-100 text-ink-600;
+}
+
+.pill-unknown {
+  @apply pill bg-accent-warnSoft text-accent-warn;
+}
+
+.link {
+  @apply text-accent hover:underline underline-offset-2;
+}
